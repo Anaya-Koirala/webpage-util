@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+          <style>
+          * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+          }
+
+          html,
+          body {
+              width: 100%;
+              height: 100%;
+              overflow: hidden;
+              background: #111;
+              touch-action: none;
+          }
+
+          body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+          }
+
+          canvas {
+              border: 2px solid white;
+              display: block;
+          }
+          </style>
+          </head>
+          <body>
+
+          <canvas id="game"></canvas>
+
+          <script>
+          const canvas = document.getElementById("game");
+          const ctx = canvas.getContext("2d");
+
+          const isMobile =
+              /Android|iPhone|iPad|iPod|Mobile/i.test(
+                  navigator.userAgent
+              );
+
+          // Images
+          const playerImg = new Image();
+          playerImg.src = "https://webpage-util.pages.dev/brick/me.png";
+
+          const brickImg = new Image();
+          brickImg.src = "https://webpage-util.pages.dev/brick/brick.png";
+
+          const bgImg = new Image();
+          bgImg.src = "https://webpage-util.pages.dev/brick/background.png";
+
+          // Responsive canvas
+          function resizeCanvas() {
+
+              if (isMobile) {
+
+                  // Portrait rectangle for phones
+                  canvas.width = window.innerWidth * 0.95;
+                  canvas.height = window.innerHeight * 0.95;
+
+              } else {
+
+                  // Square for desktop
+                  const size = Math.min(
+                      window.innerWidth * 0.95,
+                      window.innerHeight * 0.95
+                  );
+
+                  canvas.width = size;
+                  canvas.height = size;
+              }
+
+              player.width = canvas.width * 0.14;
+              player.height = player.width * 1.5;
+
+              player.y = canvas.height - player.height - 20;
+
+              if (player.x > canvas.width - player.width) {
+                  player.x = canvas.width - player.width;
+              }
+          }
+
+          // Player
+          const player = {
+              x: 0,
+              y: 0,
+              width: 100,
+              height: 150
+          };
+
+          let bricks = [];
+          let keys = {};
+          let score = 0;
+          let gameOver = false;
+          let brickSpeed = 3;
+
+          resizeCanvas();
+
+          player.x = canvas.width / 2 - player.width / 2;
+
+          window.addEventListener("resize", resizeCanvas);
+
+          // Keyboard controls (desktop)
+          document.addEventListener("keydown", e => {
+
+              if (gameOver) {
+                  resetGame();
+                  return;
+              }
+
+              keys[e.key] = true;
+          });
+
+          document.addEventListener("keyup", e => {
+              keys[e.key] = false;
+          });
+
+          // Touch controls (mobile)
+          canvas.addEventListener("touchstart", e => {
+
+              if (gameOver) {
+                  resetGame();
+                  return;
+              }
+
+              const rect = canvas.getBoundingClientRect();
+
+              player.x =
+                  e.touches[0].clientX -
+                  rect.left -
+                  player.width / 2;
+          });
+
+          canvas.addEventListener("touchmove", e => {
+
+              e.preventDefault();
+
+              const rect = canvas.getBoundingClientRect();
+
+              player.x =
+                  e.touches[0].clientX -
+                  rect.left -
+                  player.width / 2;
+
+              player.x = Math.max(
+                  0,
+                  Math.min(
+                      canvas.width - player.width,
+                      player.x
+                  )
+              );
+
+          }, { passive: false });
+
+          // Reset game
+          function resetGame() {
+
+              bricks = [];
+              score = 0;
+              gameOver = false;
+
+              brickSpeed = canvas.width * 0.004;
+
+              player.x =
+                  canvas.width / 2 -
+                  player.width / 2;
+
+              player.y =
+                  canvas.height -
+                  player.height -
+                  20;
+
+              keys = {};
+          }
+
+          // Spawn brick
+          function spawnBrick() {
+
+              const brickSize = isMobile
+                  ? canvas.width * 0.08
+                  : canvas.width * 0.06;
+
+              bricks.push({
+                  x: Math.random() * (canvas.width - brickSize),
+                  y: -brickSize,
+                  width: brickSize,
+                  height: brickSize
+              });
+          }
+
+          // Initial speed
+          brickSpeed = canvas.width * 0.004;
+
+          // Spawn bricks
+          setInterval(() => {
+
+              if (!gameOver) {
+                  spawnBrick();
+              }
+
+          }, 1000);
+
+          // Difficulty increase
+          setInterval(() => {
+
+              if (gameOver) return;
+
+              brickSpeed += canvas.width * 0.0007;
+
+              for (let i = 0; i < 3; i++) {
+                  spawnBrick();
+              }
+
+          }, 5000);
+
+          // Collision
+          function intersects(a, b) {
+
+              return (
+                  a.x < b.x + b.width &&
+                  a.x + a.width > b.x &&
+                  a.y < b.y + b.height &&
+                  a.y + a.height > b.y
+              );
+          }
+
+          // Update
+          function update() {
+
+              if (gameOver) return;
+
+              const moveSpeed = canvas.width * 0.01;
+
+              if (keys["ArrowLeft"]) {
+                  player.x -= moveSpeed;
+              }
+
+              if (keys["ArrowRight"]) {
+                  player.x += moveSpeed;
+              }
+
+              player.x = Math.max(
+                  0,
+                  Math.min(
+                      canvas.width - player.width,
+                      player.x
+                  )
+              );
+
+              for (let i = bricks.length - 1; i >= 0; i--) {
+
+                  const brick = bricks[i];
+
+                  brick.y += brickSpeed;
+
+                  if (intersects(player, brick)) {
+                      gameOver = true;
+                  }
+
+                  if (brick.y > canvas.height) {
+
+                      bricks.splice(i, 1);
+                      score++;
+                  }
+              }
+          }
+
+          // Draw background
+          function drawBackground() {
+
+              if (
+                  bgImg.complete &&
+                  bgImg.naturalWidth > 0
+              ) {
+
+                  ctx.drawImage(
+                      bgImg,
+                      0,
+                      0,
+                      canvas.width,
+                      canvas.height
+                  );
+
+              } else {
+
+                  ctx.fillStyle = "#222";
+                  ctx.fillRect(
+                      0,
+                      0,
+                      canvas.width,
+                      canvas.height
+                  );
+              }
+          }
+
+          // Draw player
+          function drawPlayer() {
+
+              if (
+                  playerImg.complete &&
+                  playerImg.naturalWidth > 0
+              ) {
+
+                  ctx.drawImage(
+                      playerImg,
+                      player.x,
+                      player.y,
+                      player.width,
+                      player.height
+                  );
+
+              } else {
+
+                  ctx.fillStyle = "blue";
+                  ctx.fillRect(
+                      player.x,
+                      player.y,
+                      player.width,
+                      player.height
+                  );
+              }
+          }
+
+          // Draw bricks
+          function drawBricks() {
+
+              bricks.forEach(brick => {
+
+                  if (
+                      brickImg.complete &&
+                      brickImg.naturalWidth > 0
+                  ) {
+
+                      ctx.drawImage(
+                          brickImg,
+                          brick.x,
+                          brick.y,
+                          brick.width,
+                          brick.height
+                      );
+
+                  } else {
+
+                      ctx.fillStyle = "red";
+
+                      ctx.fillRect(
+                          brick.x,
+                          brick.y,
+                          brick.width,
+                          brick.height
+                      );
+                  }
+              });
+          }
+
+          // Draw
+          function draw() {
+
+              drawBackground();
+              drawBricks();
+              drawPlayer();
+
+              ctx.fillStyle = "white";
+              ctx.textAlign = "left";
+              ctx.font =
+                  `${canvas.width * 0.035}px Arial`;
+
+              ctx.fillText(
+                  "Score: " + score,
+                  15,
+                  35
+              );
+
+              if (gameOver) {
+
+                  ctx.textAlign = "center";
+
+                  ctx.font =
+                      `${canvas.width * 0.08}px Arial`;
+
+                  ctx.fillText(
+                      "GAME OVER",
+                      canvas.width / 2,
+                      canvas.height / 2
+                  );
+
+                  ctx.font =
+                      `${canvas.width * 0.045}px Arial`;
+
+                  ctx.fillText(
+                      "Score: " + score,
+                      canvas.width / 2,
+                      canvas.height / 2 + 50
+                  );
+
+                  ctx.fillText(
+                      isMobile
+                          ? "Tap to restart"
+                          : "Press any key to restart",
+                      canvas.width / 2,
+                      canvas.height / 2 + 100
+                  );
+              }
+          }
+
+          // Main loop
+          function loop() {
+
+              update();
+              draw();
+
+              requestAnimationFrame(loop);
+          }
+
+          loop();
+          </script>
+
+          </body>
+          </html>
